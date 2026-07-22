@@ -10,11 +10,10 @@ def test_scrub_pii_via_api_success():
         "Hi, my name is Vishek Lamba and my email is vishek.lamba@company.com.",
         "Please send a calendar invite to the email"
     ])
-
-
-
-
-
+    #Mock the OpenAI API client inside the pipeline module 
+    with patch("src.pipeline.OpenAI") as MockOpenAI:
+        #Create the mock insrtance object that OpenAI() will return 
+        mock_client_instance = MagicMock()
 
 
 
