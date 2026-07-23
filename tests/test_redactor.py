@@ -3,32 +3,38 @@ import pytest
 from src.pipeline import srub_pii_via_api
 from unittest.mock import patch, MagicMock
 
-#Tests the srub_pii_via_api function with a successful response from the OpenAI API with clean rows
-def test_scrub_pii_via_api_success():
 
+# Tests the srub_pii_via_api function with a successful response from the OpenAI API with clean rows
+def test_scrub_pii_via_api_success(spark_session):
     input_data = pd.Series([
         "Hi, my name is Vishek Lamba and my email is vishek.lamba@company.com.",
         "Please send a calendar invite to the email"
     ])
-    #Mock the OpenAI API client inside the pipeline module 
+
+    # 1. Convert pandas series to a PySpark DataFrame
+    df = spark_session.createDataFrame(pd.DataFrame({"input_text": input_data}))
+
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Hi, my name is [REDACTED] and my email is [REDACTED]."
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice]
+
     with patch("src.pipeline.OpenAI") as MockOpenAI:
-        #Create the mock insrtance object that OpenAI() will return 
         mock_client_instance = MagicMock()
+        mock_client_instance.chat.completions.create.return_value = mock_response
+        MockOpenAI.return_value = mock_client_instance
+
+        # 2. Pass the PySpark Column (df["input_text"]) to the UDF
+        result_df = df.withColumn("scrubbed_text", srub_pii_via_api(df["input_text"]))
+        results = [row["scrubbed_text"] for row in result_df.collect()]
+        
+        assert len(results) == 2
 
 
-
-
-
-
-
-
-
-
-
+# Integration test for PySpark DataFrame processing with the srub_pii_via_api UDF, mocking the OpenAI API responses
 def test_redactData(spark_session):
 
-
-    #Test cases and their expected resposnses 
+    # Test cases and their expected responses 
     mock_test_data = [
     # === 1. DIRECT PII: NAMES & EMAILS (1-10) ===
     (1, "Hi, my name is Alice Smith and my email is alice.smith@company.com.", "Hi, my name is [REDACTED] and my email is [REDACTED]."),
@@ -37,8 +43,8 @@ def test_redactData(spark_session):
     (4, "User log created for employee Michael Williamson yesterday morning.", "User log created for employee [REDACTED] yesterday morning."),
     (5, "This ticket was escalated by David O'Connor from tier 1 support.", "This ticket was escalated by [REDACTED] from tier 1 support."),
     (6, "Ping engineer dr.emily.kaur@internal-secure.io if the deployment fails.", "Ping engineer [REDACTED] if the deployment fails."),
-    (7, "The primary point of contact for this corporate account is Ms. Maria De Souza.", "The primary point of contact for this corporate account is [REDACTED]."),
-    (8, "Send the invoice to finance-dept@vendor.com and cc bill.gates@microsoft.com.", "Send the invoice to finance-dept@vendor.com and cc [REDACTED]."), # Note: Dept email could be kept or scrubbed depending on strictness; usually personal email is prioritized
+    (7, "The primary point of contact for this corporate account is Ms. Maria De Souza.", "The primary point of contact for this corporate account is Ms. [REDACTED]."),
+    (8, "Send the invoice to finance-dept@vendor.com and cc bill.gates@microsoft.com.", "Send the invoice to finance-dept@vendor.com and cc [REDACTED]."), 
     (9, "Review completed by software intern Yuki Tanaka on branch main.", "Review completed by software intern [REDACTED] on branch main."),
     (10, "Hey, this is Alex, hit me up at alex_workspace2026@yahoo.com.", "Hey, this is [REDACTED], hit me up at [REDACTED]."),
 
@@ -91,9 +97,41 @@ def test_redactData(spark_session):
     (50, "<script>alert('XSS Attack Simulation')</script> Should remain unmodified plain text text.", "<script>alert('XSS Attack Simulation')</script> Should remain unmodified plain text text.")
 ]
 
-#Put this mock input data into a Spark DataFrame
-schema = ["id", "input_text"]
+    # Put mock input data into a Spark DataFrame
+    schema = ["id", "input_text", "expected_text"]  # Match column name expected in assertions
 
-df = spark_session.createDataFrame(mock_test_data, schema=schema)
+    df = spark_session.createDataFrame(mock_test_data, schema=schema)
 
-#Mock the OpenAI response
+    # Dynamic API response handler based on input row content
+    def mock_api_call(*args, **kwargs):
+        user_message = kwargs["messages"][1]["content"]
+        
+        # Extract the input string from the prompt wrapper
+        raw_input = user_message.split('"""')[1]
+        
+        # Match input with expected redacted output from test dataset
+        match = next(item for item in mock_test_data if item[1] == raw_input)
+        expected = match[2]
+
+        # Construct OpenAI client completion response
+        mock_choice = MagicMock()
+        mock_choice.message.content = f'"""{expected}"""'
+        
+        mock_resp = MagicMock()
+        mock_resp.choices = [mock_choice]
+        return mock_resp
+
+    with patch("src.pipeline.OpenAI") as MockOpenAI:
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = mock_api_call
+        MockOpenAI.return_value = mock_client
+
+        # Transform using Pandas UDF in PySpark
+        df_cleaned = df.withColumn("scrubbed_text", srub_pii_via_api(df["input_text"]))
+        results = df_cleaned.collect()
+
+        # Validate PySpark processing execution
+        assert len(results) == 50
+        for row in results:
+            actual = row["scrubbed_text"].replace('"""', '').strip()
+            assert actual == row["expected_text"]
