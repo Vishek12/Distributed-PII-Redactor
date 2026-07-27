@@ -3,6 +3,7 @@
 The pipeline follows a distributed batch-processing pattern. PySpark handles data partitioning and parallel execution across worker nodes, while vectorized Pandas UDFs manage high-throughput concurrent API calls to OpenAI for dynamic PII redaction.
 
 
+```text
 [Input Dataset]  (Logs, CSVs, Parquet, Delta Lake)
        │
        ▼
@@ -16,6 +17,7 @@ The pipeline follows a distributed batch-processing pattern. PySpark handles dat
        │
        ▼
 [Output Storage] (Cleaned Parquet / Delta Lake / S3)
+```
 
 
 ## 🛠 Tech Stack
