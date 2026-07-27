@@ -6,30 +6,21 @@ from pyspark.sql.functions import pandas_udf
 from pathlib import Path
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
+from pyspark.sql.types import StringType
 
 # 1. Load credentials into driver process
 script_dir = Path(__file__).resolve().parent
 root_dir = script_dir.parent
-load_dotenv(dotenv_path=root_dir / ".env") #Change to the correct path to your .env file if needed (if cloning the repo, it should be in the root directory)
+load_dotenv(dotenv_path=root_dir / ".env")
 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 
-# 2. Initialize Spark Session
-# Initialize Local Spark Session 
-spark = SparkSession.builder \
-    .appName("Distributed-PII-Redactor") \
-    .master("local[*]") \
-    .config("spark.driver.extraJavaOptions", "-Djava.security.manager=allow") \
-    .config("spark.executor.extraJavaOptions", "-Djava.security.manager=allow") \
-    .getOrCreate()
-
-spark.sparkContext.setLogLevel("ERROR")
-
-# 3. Vectorized/Threaded Pandas UDF
-@pandas_udf("string")
+# 2. Vectorized/Threaded Pandas UDF
+@pandas_udf(StringType())
 def srub_pii_via_api(batch: pd.Series) -> pd.Series:
-    # Initialize client explicitly using captured key
-    client = OpenAI(api_key=OPENAI_KEY)
+    # Use environment key or fallback to global for workers
+    api_key = os.getenv("OPENAI_API_KEY", OPENAI_KEY) or "mock-key-for-tests"
+    client = OpenAI(api_key=api_key)
 
     def process_single_text(text: str) -> str:
         if not text or pd.isna(text):
@@ -65,22 +56,32 @@ def srub_pii_via_api(batch: pd.Series) -> pd.Series:
         except Exception as e:
             return f"[ERROR PROCESSING: {text}]"
 
-    # Use ThreadPoolExecutor to make concurrent requests per PySpark batch
     with ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(process_single_text, batch))
 
     return pd.Series(results)
 
-# 4. Execute Pipeline
-file_path = root_dir / "data" / "mock_logs.csv"
 
-print("🚀 Step 1: Ingesting dataset into Spark DataFrame...")
-df = spark.read.csv(str(file_path), header=True)
+# 3. Execute Pipeline ONLY when running script directly (not on pytest import)
+if __name__ == "__main__":
+    spark = SparkSession.builder \
+        .appName("Distributed-PII-Redactor") \
+        .master("local[*]") \
+        .config("spark.driver.extraJavaOptions", "-Djava.security.manager=allow") \
+        .config("spark.executor.extraJavaOptions", "-Djava.security.manager=allow") \
+        .getOrCreate()
 
-print("🌐 Step 2: Running parallel workers to stream data chunks to OpenAI...")
-df_clean = df.withColumn("scrubbed_text", srub_pii_via_api(df["raw_text"]))
+    spark.sparkContext.setLogLevel("ERROR")
 
-print("📊 Step 3: Pipeline Execution Complete! Showing Results:")
-df_clean.show(truncate=False)
+    file_path = root_dir / "data" / "mock_logs.csv"
 
-spark.stop()
+    print("🚀 Step 1: Ingesting dataset into Spark DataFrame...")
+    df = spark.read.csv(str(file_path), header=True)
+
+    print("🌐 Step 2: Running parallel workers to stream data chunks to OpenAI...")
+    df_clean = df.withColumn("scrubbed_text", srub_pii_via_api(df["raw_text"]))
+
+    print("📊 Step 3: Pipeline Execution Complete! Showing Results:")
+    df_clean.show(truncate=False)
+
+    spark.stop()
