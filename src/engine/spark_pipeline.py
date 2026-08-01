@@ -37,7 +37,7 @@ def build_spark_session(app_name: str = "Distributed-PII-Redactor") -> SparkSess
 
     return spark
 
-
+# Function to run the Spark pipeline for PII redaction on a given CSV file.
 def run_pipeline(input_csv_path: str, api_key: str = None) -> pd.DataFrame:
     spark = build_spark_session()
     spark.sparkContext.setLogLevel("ERROR")
