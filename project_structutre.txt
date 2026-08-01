@@ -1,0 +1,29 @@
+Distributed-PII-Redactor/
+├── data/                       # Sample files & logs for local testing
+│   ├── mock_logs.csv
+│   └── sample_input.docx
+├── src/
+│   ├── __init__.py
+│   ├── extractors/             # NEW: File Parsing & Rebuilding Layer
+│   │   ├── __init__.py
+│   │   ├── docx_handler.py     # Reads .docx, redacts text, saves output .docx
+│   │   └── pdf_handler.py      # Extracts PDF text, applies redaction/overlay, saves .pdf
+│   │
+│   ├── engine/                 # NEW: Modular Redaction Core
+│   │   ├── __init__.py
+│   │   ├── llm_client.py       # OpenAI API call logic & system prompt
+│   │   └── spark_pipeline.py   # PySpark batch execution & Pandas UDF (former pipeline.py)
+│   │
+│   └── app.py                  # NEW: Streamlit Dashboard UI
+│
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py             # Shared Spark & mock fixtures
+│   ├── test_extractors.py      # Tests for DOCX and PDF parsing logic
+│   └── test_redactor.py        # Core LLM & Spark pipeline unit tests
+│
+├── .env                        # OPENAI_API_KEY
+├── .gitignore
+├── pytest.ini
+├── README.md
+└── requirements.txt            # Added python-docx, pypdf / pdfplumber, reportlab, streamlit
