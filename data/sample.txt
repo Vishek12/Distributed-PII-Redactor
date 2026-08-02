@@ -1,0 +1,35 @@
+================================================================================
+PATIENT MEDICAL INTAKE & FINANCIAL AUDIT RECORD
+Document ID: TXT-2026-0802-MED
+Date: August 2, 2026
+================================================================================
+
+1. PATIENT IDENTIFICATION
+--------------------------------------------------------------------------------
+Full Name: David K. Miller
+Date of Birth: 04/12/1988
+Email Address: d.miller88@healthcare-network.org
+Mobile Phone: (416) 555-0147 | Work Ext: 902
+Social Insurance Number (SIN): 847-291-043
+Primary Address: 250 Yonge Street, Suite 1200, Toronto, ON, M5B 2L7, Canada
+
+2. EMERGENCY CONTACT & PAYMENT DETAILS
+--------------------------------------------------------------------------------
+Next of Kin: Amanda Miller (Spouse)
+Emergency Contact Phone: +1-416-555-0199
+Insurance Policy ID: POL-992817402
+Primary Credit Card: Visa ending in 4111222233334444 | Exp: 05/28
+CVV Security Code: 741
+Direct Wire Bank Routing: Routing # 021000021 | IBAN CA91000200009876543210
+
+3. MEDICAL & CASE NOTES
+--------------------------------------------------------------------------------
+Patient David Miller presented with mild symptoms during routine checkup.
+Assigned Attending Physician: Dr. Claire Sterling (License # MD-88301)
+Facility Location: St. Michael's Health Clinic, Room 402B
+
+4. SYSTEM APPLICATION LOGS (SAFE - DO NOT REDACT)
+--------------------------------------------------------------------------------
+[08/02/2026 15:10:02] INFO: Text file ingested successfully via Streamlit FileProcessor.
+[08/02/2026 15:10:03] DEBUG: Regex patterns matched: [EMAIL, PHONE_NUMBER, SIN, CREDIT_CARD].
+[08/02/2026 15:10:05] SUCCESS: Streamlit UI generated preview buffer. Memory footprint: 1.2 KB.
