@@ -33,7 +33,7 @@ class DocumentExporter:
         return text.encode("utf-8")
 
     @staticmethod
-    def create_redacted_pdf_bytes(original_pdf_bytes: bytes, pii_entities: list[str]) -> bytes:
+    def export_redacted_pdf_bytes(original_pdf_bytes: bytes, pii_entities: list[str]) -> bytes:
         """
         Searches for PII strings on the original PDF and applies visual black redaction boxes.
         
